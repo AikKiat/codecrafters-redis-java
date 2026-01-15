@@ -50,10 +50,27 @@ public class EventLoop{
                             System.out.println("Client Disconnected");
                             continue;
                         }
-                        String input = new String(buffer.array(), 0, bytesRead);
+                        String input = new String(buffer.array(), 0, bytesRead); //constructs the new string by decoding the byte array, from start index to length of byte array through bytesRead
                         System.out.println("Received:" + input);
+                        String[] respInputParts = input.split("\r\n");
 
-                        client.write(ByteBuffer.wrap("+PONG\r\n".getBytes()));
+                        //FORMAT OF RESP is this:
+                        //*<length of array>\r\n
+                        //$<length of first string part>\r\n
+                        //<first string part>\r\n --> the Command. Can be SET, GET, PING, ECHO, etc
+                        //$<length of input value>\r\n
+                        //<input value itself>
+
+                        //ECHO case
+                        if (respInputParts.length >= 5 && respInputParts[2].equalsIgnoreCase("ECHO")){
+                            String inputToEcho = respInputParts[4];
+                            String output = String.format("$%d\r\n%s\r\n", inputToEcho.length(), inputToEcho);
+                            client.write(ByteBuffer.wrap(output.getBytes()));                            
+                        }
+
+                        else if (respInputParts.length == 3 && respInputParts[2].equalsIgnoreCase("PING")){
+                            client.write(ByteBuffer.wrap("+PONG\r\n".getBytes()));
+                        }
                     }
                 } catch(IOException e){
                     key.channel().close();

@@ -11,6 +11,7 @@ public class EventLoop{
     private int portNumber;
     private Selector selector; //Create Selector (Epoll equivalent for redis)
     private ServerSocketChannel serverChannel;
+    private Database databaseSingleton;
 
 
     public EventLoop(int portNumber) throws IOException{
@@ -23,6 +24,10 @@ public class EventLoop{
 
         //Register server socket for ACCEPT events
         this.serverChannel.register(selector, SelectionKey.OP_ACCEPT); //New TCP connection
+
+        this.databaseSingleton = Database.getInstance();
+
+
     }
 
     public void clientCommunication() throws IOException{
@@ -42,34 +47,59 @@ public class EventLoop{
                     }
 
                     if(key.isReadable()){
-                        SocketChannel client = (SocketChannel) key.channel();
-                        ByteBuffer buffer = ByteBuffer.allocate(1024);
-                        int bytesRead = client.read(buffer);
-                        if (bytesRead == -1){
-                            client.close();
-                            System.out.println("Client Disconnected");
+                        Client client = new Client(key, 1024);
+                        String input = client.read();
+                        
+                        if(input == null){
+                            key.cancel();
                             continue;
                         }
-                        String input = new String(buffer.array(), 0, bytesRead); //constructs the new string by decoding the byte array, from start index to length of byte array through bytesRead
-                        System.out.println("Received:" + input);
+
                         String[] respInputParts = input.split("\r\n");
 
-                        //FORMAT OF RESP is this:
+                        //FORMAT OF RESP BULK STRING is this:
                         //*<length of array>\r\n
                         //$<length of first string part>\r\n
                         //<first string part>\r\n --> the Command. Can be SET, GET, PING, ECHO, etc
                         //$<length of input value>\r\n
                         //<input value itself>
 
-                        //ECHO case
-                        if (respInputParts.length >= 5 && respInputParts[2].equalsIgnoreCase("ECHO")){
-                            String inputToEcho = respInputParts[4];
-                            String output = String.format("$%d\r\n%s\r\n", inputToEcho.length(), inputToEcho);
-                            client.write(ByteBuffer.wrap(output.getBytes()));                            
-                        }
+                        
+                        if(respInputParts.length >= 3){
+                            String command = respInputParts[2].toUpperCase();
 
-                        else if (respInputParts.length == 3 && respInputParts[2].equalsIgnoreCase("PING")){
-                            client.write(ByteBuffer.wrap("+PONG\r\n".getBytes()));
+                            switch(command){
+
+                                case "ECHO":
+                                    String inputToEcho = respInputParts[4];
+                                    client.write(String.format("$%d\r\n%s\r\n", inputToEcho.length(), inputToEcho));  
+                                    break;
+
+                                case "PING":
+                                    client.write("+PONG\r\n");
+                                    break;
+                                    
+                                case "SET":
+
+                                    String keyToSet = respInputParts[4];
+                                    String valueToSet = respInputParts[6];
+                                    this.databaseSingleton.setKeyValue(keyToSet, valueToSet);
+                                    client.write("+OK\r\n");
+                                    break;
+                                
+                                case "GET":
+
+                                    String rediskey = respInputParts[4];
+                                    Object redisValue = this.databaseSingleton.getKeyValue(rediskey);
+                                    if (redisValue != null){
+                                        String stringValue = String.valueOf(redisValue);
+                                        client.write(String.format("$%d\r\n%s\r\n", stringValue.length(), stringValue));
+                                    }
+                                    else{
+                                        client.write("$-1\r\n");
+                                    }
+                                    break;
+                                }
                         }
                     }
                 } catch(IOException e){

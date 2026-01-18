@@ -46,11 +46,12 @@ public class Datastore{
     public static Integer incrementKey(String key){
         ValueEntry valueEntry = keyValueStore.get(key);
         if (valueEntry != null){
-            if (valueEntry.value instanceof Integer){
-                valueEntry.value += 1;
-                return 0;
+            try{
+                Integer current = Integer.parseInt(valueEntry.value);
+                valueEntry.value = current + 1;
+                return (Integer) valueEntry.value;
             }
-            else{
+            catch{
                 return -1;
             }
         }

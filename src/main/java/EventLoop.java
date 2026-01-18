@@ -109,12 +109,13 @@ public class EventLoop{
                                 case "INCR":
                                     String incrKey = respInputParts[4];
                                     Integer increResult = databaseSingleton.incrementKey(incrKey);
-                                    if(increResult == 1 || 0){
-                                        client.write("+OK\r\n");
+                                    if(increResult != -1){
+                                        client.write(String.format("%d\r\n", increResult));
                                     }
                                     else{
                                         client.write("$-1\r\n");
                                     }
+                                    break;
                                 }
                         }
                     }

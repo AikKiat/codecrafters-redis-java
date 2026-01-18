@@ -113,7 +113,7 @@ public class EventLoop{
                                         client.write(String.format(":%d\r\n", increResult));
                                     }
                                     else{
-                                        client.write("$-1\r\n");
+                                        client.write("-ERR value is not an integer or out of range\r\n");
                                     }
                                     break;
                                 }

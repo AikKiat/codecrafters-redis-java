@@ -47,11 +47,11 @@ public class Datastore{
         ValueEntry valueEntry = keyValueStore.get(key);
         if (valueEntry != null){
             try{
-                Integer current = Integer.parseInt(valueEntry.value);
+                Integer current = Integer.parseInt((String) valueEntry.value);
                 valueEntry.value = current + 1;
                 return (Integer) valueEntry.value;
             }
-            catch{
+            catch(NumberFormatException e){
                 return -1;
             }
         }

@@ -110,7 +110,7 @@ public class EventLoop{
                                     String incrKey = respInputParts[4];
                                     Integer increResult = databaseSingleton.incrementKey(incrKey);
                                     if(increResult != -1){
-                                        client.write(String.format("%d\r\n", increResult));
+                                        client.write(String.format(":%d\r\n", increResult));
                                     }
                                     else{
                                         client.write("$-1\r\n");

@@ -55,7 +55,7 @@ public class Datastore{
                 return -1;
             }
         }
-        setKeyValue(key, 1, -1L);
+        setKeyValue(key, "1", -1L);
         return 1;  
     }
 }

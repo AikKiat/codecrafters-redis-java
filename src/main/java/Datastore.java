@@ -42,4 +42,19 @@ public class Datastore{
         keyValueStore.remove(key);
         return null;
     }
+
+    public static Integer incrementKey(String key){
+        ValueEntry valueEntry = keyValueStore.get(key);
+        if (valueEntry != null){
+            if (valueEntry.value instanceof Integer){
+                valueEntry.value += 1;
+                return 0;
+            }
+            else{
+                return -1;
+            }
+        }
+        setKeyValue(key, 1, -1L);
+        return 1;  
+    }
 }

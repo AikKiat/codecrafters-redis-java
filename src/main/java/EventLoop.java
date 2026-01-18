@@ -96,7 +96,7 @@ public class EventLoop{
                                 case "GET":
 
                                     String rediskey = respInputParts[4];
-                                    Object redisValue = this.databaseSingleton.getKeyValue(rediskey);
+                                    Object redisValue = databaseSingleton.getKeyValue(rediskey);
                                     if (redisValue != null){
                                         String stringValue = String.valueOf(redisValue);
                                         client.write(String.format("$%d\r\n%s\r\n", stringValue.length(), stringValue));
@@ -105,6 +105,16 @@ public class EventLoop{
                                         client.write("$-1\r\n");
                                     }
                                     break;
+                                
+                                case "INCR":
+                                    String incrKey = respInputParts[4];
+                                    Integer increResult = databaseSingleton.incrementKey(incrKey);
+                                    if(increResult == 1 || 0){
+                                        client.write("+OK\r\n");
+                                    }
+                                    else{
+                                        client.write("$-1\r\n");
+                                    }
                                 }
                         }
                     }

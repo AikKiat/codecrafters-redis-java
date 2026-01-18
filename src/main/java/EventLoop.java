@@ -11,7 +11,7 @@ public class EventLoop{
     private int portNumber;
     private Selector selector; //Create Selector (Epoll equivalent for redis)
     private ServerSocketChannel serverChannel;
-    private Database databaseSingleton;
+    private Datastore databaseSingleton;
 
 
     public EventLoop(int portNumber) throws IOException{
@@ -25,7 +25,7 @@ public class EventLoop{
         //Register server socket for ACCEPT events
         this.serverChannel.register(selector, SelectionKey.OP_ACCEPT); //New TCP connection
 
-        this.databaseSingleton = Database.getInstance();
+        this.databaseSingleton = Datastore.getInstance();
 
 
     }
@@ -83,7 +83,13 @@ public class EventLoop{
 
                                     String keyToSet = respInputParts[4];
                                     String valueToSet = respInputParts[6];
-                                    this.databaseSingleton.setKeyValue(keyToSet, valueToSet);
+                                    Long expiryTime = -1L;
+                                    if(respInputParts.length >= 10 && respInputParts[8].equalsIgnoreCase("PX")){
+                                        System.out.println(respInputParts[8]);
+                                        System.out.println(respInputParts[7]);
+                                        expiryTime = Long.parseLong(respInputParts[10]);
+                                    }
+                                    this.databaseSingleton.setKeyValue(keyToSet, valueToSet, expiryTime);
                                     client.write("+OK\r\n");
                                     break;
                                 

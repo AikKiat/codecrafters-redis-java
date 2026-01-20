@@ -3,7 +3,7 @@ import java.util.HashMap;
 
 public class Datastore{
     private static final HashMap<Object, ValueEntry> keyValueStore = new HashMap(); //Fast, unordered map from Java.util class
-
+    
     private static Datastore datastoreInstance = null;
 
     private Datastore(){

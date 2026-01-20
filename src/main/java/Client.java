@@ -142,6 +142,11 @@ public class Client{
                         break;
 
                     case "EXEC":
+                        if(commandsQueue.getSize() == 0){
+                            write("-ERR EXEC without MULTI\r\n");
+                            break;
+                        }
+                        System.out.println(commandsQueue.peek());
                         while (commandsQueue.getSize() > 0){
                             parseCommands(commandsQueue.popLatest());
                         }

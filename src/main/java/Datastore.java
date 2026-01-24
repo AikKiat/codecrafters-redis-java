@@ -55,9 +55,9 @@ public class Datastore{
         ValueEntry valueEntry = keyValueStore.get(key);
         if (valueEntry != null){
             try{
-                Integer current = Integer.parseInt((String) valueEntry.value);
-                valueEntry.value = current + 1;
-                return (Integer) valueEntry.value;
+                int current = Integer.parseInt((String) valueEntry.value);
+                valueEntry.value = String.valueOf(current + 1); //ALWAYS make sure to store BACK AS STRING, not any other data type. --> Redis works as such: Store as string --> convert, increment, or do any other neccesary type-related operation --> store BACK as string!!!
+                return current + 1;
             }
             catch(NumberFormatException e){
                 return -1;

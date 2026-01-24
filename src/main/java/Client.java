@@ -3,20 +3,25 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.io.IOException;
+import java.util.ArrayDeque;
 
 
 public class Client{
     private SocketChannel client;
     private ByteBuffer buffer;
     private Queue<String> commandsQueue;
-    private boolean isMulti;
+    private Queue<String> responsesQueue;
+    private boolean isMultiCalled;
+    private boolean isExecCalled;
     private Datastore databaseSingleton;
 
     public Client(SelectionKey key, Integer bufferSize){
         client = (SocketChannel) key.channel();
         buffer = ByteBuffer.allocate(bufferSize);
         commandsQueue = new Queue<String>();
-        isMulti = false;
+        responsesQueue = new Queue<String>();
+        isMultiCalled = false;
+        isExecCalled = false;
         databaseSingleton = Datastore.getInstance();
     }
 
@@ -24,12 +29,12 @@ public class Client{
         client.write(buffer.wrap(toWrite.getBytes()));  
     }
 
-    public void setIsMulti(boolean value){
-        isMulti = value;
+    public void setIsMultiCalled(boolean value){
+        isMultiCalled = value;
     }
 
-    public boolean getIsMulti(){
-        return isMulti;
+    public boolean getIsMultiCalled(){
+        return isMultiCalled;
     }
 
     public String read() throws IOException{
@@ -47,9 +52,9 @@ public class Client{
         buffer.clear(); // clear the buffer, then we prepare for next read
 
         String input = new String(data);
-        System.out.println("Received from Client " + client + ": " + input);
+        // System.out.println("Received from Client " + client + ": " + input);
 
-        if(isMulti == true && !input.contains("EXEC")){
+        if(isMultiCalled == true && !input.contains("EXEC")){
             storeCommandInQueue(input);
         }
 
@@ -58,6 +63,10 @@ public class Client{
 
     public void storeCommandInQueue(String command){
         commandsQueue.add(command);
+    }
+
+    public void storeResponseInQueue(String response){
+        responsesQueue.add(response);
     }
 
     public String getLatestQueuedCommand(){
@@ -89,23 +98,36 @@ public class Client{
 
                     case "ECHO":
                         String inputToEcho = respInputParts[4];
-                        if(isMulti == true){
+                        
+                        if(isMultiCalled == true){
                             write("+QUEUED\r\n");
                             break;
                         }
+
+                        if(isExecCalled == true){
+                            responsesQueue.add(String.format("$%d\r\n%s\r\n", inputToEcho.length(), inputToEcho));
+                            break;
+                        }
+
                         write(String.format("$%d\r\n%s\r\n", inputToEcho.length(), inputToEcho));  
                         break;
 
                     case "PING":
-                        if(isMulti == true){
+                        if(isMultiCalled == true){
                             write("+QUEUED\r\n");
                             break;
                         }
+
+                        if(isExecCalled == true){
+                            responsesQueue.add("+PONG\r\n");
+                            break;
+                        }
+
                         write("+PONG\r\n");
                         break;
                         
                     case "SET":
-                        if(isMulti == true){
+                        if(isMultiCalled == true){
                             write("+QUEUED\r\n");
                             break;
                         }
@@ -119,12 +141,19 @@ public class Client{
                             expiryTime = Long.parseLong(respInputParts[10]);
                         }
                         databaseSingleton.setKeyValue(keyToSet, valueToSet, expiryTime);
+
+                        
+                        if(isExecCalled == true){
+                            responsesQueue.add("+OK\r\n");
+                            break;
+                        }
+
                         write("+OK\r\n");
                         break;
                     
                     case "GET":
-                        System.out.println(""+isMulti);
-                        if(isMulti == true){
+                        System.out.println(""+isMultiCalled);
+                        if(isMultiCalled == true){
                             write("+QUEUED\r\n");
                             break;
                         }
@@ -133,15 +162,28 @@ public class Client{
                         Object redisValue = databaseSingleton.getKeyValue(rediskey);
                         if (redisValue != null){
                             String stringValue = String.valueOf(redisValue);
+
+                            if (isExecCalled == true){
+                                responsesQueue.add(String.format("$%d\r\n%s\r\n", stringValue.length(), stringValue));
+                                break;
+                            }
+
+
                             write(String.format("$%d\r\n%s\r\n", stringValue.length(), stringValue));
                         }
                         else{
+
+                            if (isExecCalled == true){
+                                responsesQueue.add("$-1\r\n");
+                                break;
+                            }
+
                             write("$-1\r\n");
                         }
                         break;
                     
                     case "INCR":
-                        if(isMulti == true){
+                        if(isMultiCalled == true){
                             write("+QUEUED\r\n");
                             break;
                         }
@@ -149,38 +191,56 @@ public class Client{
                         String incrKey = respInputParts[4];
                         Integer increResult = databaseSingleton.incrementKey(incrKey);
                         if(increResult != -1){
+
+                            if(isExecCalled == true){
+                                responsesQueue.add(String.format(":%d\r\n", increResult));
+                                break;
+                            }
+
                             write(String.format(":%d\r\n", increResult));
                         }
                         else{
+
+                            if(isExecCalled == true){
+                                responsesQueue.add("-ERR value is not an integer or out of range\r\n");
+                                break;
+                            }
+
                             write("-ERR value is not an integer or out of range\r\n");
                         }
                         break;
                     
                     case "MULTI":
-                        isMulti = true;
+                        isMultiCalled = true;
                         write("+OK\r\n");
                         break;
 
                     case "EXEC":
-                        System.out.println("ismulti during exec" + isMulti);
-                        if(isMulti == false){
+                
+                        if(isMultiCalled == false){
                             //Means MULTI command was not called beforehand
                             write("-ERR EXEC without MULTI\r\n");
                             break;
                         }
                         if(commandsQueue.getSize() == 0){
                             write("*0\r\n");
-                            isMulti = false;
+                            isMultiCalled = false;
                             break;
                         }
 
                         System.out.println(commandsQueue.peek());
-                        if(isMulti == true){
-                            isMulti = false;
+                        if(isMultiCalled == true){
+                            isMultiCalled = false;
                         }
+
+                        isExecCalled = true;
+                        System.out.println("ismultiCalled now" + isMultiCalled);
+                        System.out.println("Commands Queued" + commandsQueue.getQueue());
                         while (commandsQueue.getSize() > 0){
                             parseCommands(commandsQueue.popLatest());
                         }
+                        writeRespArray(responsesQueue.getQueue());
+                        isExecCalled = false;
                         break;
                 }
             }
@@ -188,5 +248,18 @@ public class Client{
             System.out.println("IO Exception occured");
         }
 
+    }
+
+
+    public void writeRespArray(ArrayDeque<String> responses) throws IOException {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("*").append(responses.size()).append("\r\n");
+
+        for (String resp : responses) {
+            sb.append(resp);
+        }
+
+        write(sb.toString());
     }
 }

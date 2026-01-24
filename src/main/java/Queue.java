@@ -4,6 +4,10 @@ import java.util.Collection;
 
 public class Queue<E>{
     private ArrayDeque<E> queue;
+
+    public ArrayDeque<E> getQueue(){
+        return queue;
+    }
     
     public Queue(){
         queue = new ArrayDeque<E>();

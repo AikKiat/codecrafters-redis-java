@@ -234,7 +234,7 @@ public class Client{
                         }
 
                         isExecCalled = true;
-                        System.out.println("ismultiCalled now" + isMultiCalled);
+                        System.out.println("isMultiCalled now" + isMultiCalled);
                         System.out.println("Commands Queued" + commandsQueue.getQueue());
                         while (commandsQueue.getSize() > 0){
                             parseCommands(commandsQueue.popLatest());
@@ -242,6 +242,18 @@ public class Client{
                         writeRespArray(responsesQueue.getQueue());
                         isExecCalled = false;
                         break;
+
+                    case "DISCARD":
+                        if(isMultiCalled == false){
+                            write("-ERR DISCARD without MULTI\r\n");
+                            break;
+                        }
+                        commandsQueue.clear();
+
+                        //Reset both flags, because you cannot call exec without multi and multi is no longer in effect after discard.
+                        isMultiCalled = false;
+                        isExecCalled = false;
+                        write("+OK\r\n");
                 }
             }
         } catch(IOException e){

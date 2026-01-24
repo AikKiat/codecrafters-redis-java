@@ -49,7 +49,7 @@ public class Client{
         String input = new String(data);
         System.out.println("Received from Client " + client + ": " + input);
 
-        if(isMulti == true){
+        if(isMulti == true && !input.contains("EXEC")){
             storeCommandInQueue(input);
         }
 
@@ -89,14 +89,26 @@ public class Client{
 
                     case "ECHO":
                         String inputToEcho = respInputParts[4];
+                        if(isMulti == true){
+                            write("+QUEUED\r\n");
+                            break;
+                        }
                         write(String.format("$%d\r\n%s\r\n", inputToEcho.length(), inputToEcho));  
                         break;
 
                     case "PING":
+                        if(isMulti == true){
+                            write("+QUEUED\r\n");
+                            break;
+                        }
                         write("+PONG\r\n");
                         break;
                         
                     case "SET":
+                        if(isMulti == true){
+                            write("+QUEUED\r\n");
+                            break;
+                        }
 
                         String keyToSet = respInputParts[4];
                         String valueToSet = respInputParts[6];
@@ -111,6 +123,11 @@ public class Client{
                         break;
                     
                     case "GET":
+                        System.out.println(""+isMulti);
+                        if(isMulti == true){
+                            write("+QUEUED\r\n");
+                            break;
+                        }
 
                         String rediskey = respInputParts[4];
                         Object redisValue = databaseSingleton.getKeyValue(rediskey);
@@ -124,6 +141,11 @@ public class Client{
                         break;
                     
                     case "INCR":
+                        if(isMulti == true){
+                            write("+QUEUED\r\n");
+                            break;
+                        }
+
                         String incrKey = respInputParts[4];
                         Integer increResult = databaseSingleton.incrementKey(incrKey);
                         if(increResult != -1){
@@ -135,14 +157,12 @@ public class Client{
                         break;
                     
                     case "MULTI":
-                        if (isMulti == false){
-                            isMulti = true;
-                        }
+                        isMulti = true;
                         write("+OK\r\n");
                         break;
 
                     case "EXEC":
-                        System.out.println("" + isMulti);
+                        System.out.println("ismulti during exec" + isMulti);
                         if(isMulti == false){
                             //Means MULTI command was not called beforehand
                             write("-ERR EXEC without MULTI\r\n");
@@ -150,15 +170,16 @@ public class Client{
                         }
                         if(commandsQueue.getSize() == 0){
                             write("*0\r\n");
+                            isMulti = false;
                             break;
                         }
 
                         System.out.println(commandsQueue.peek());
-                        while (commandsQueue.getSize() > 0){
-                            parseCommands(commandsQueue.popLatest());
-                        }
                         if(isMulti == true){
                             isMulti = false;
+                        }
+                        while (commandsQueue.getSize() > 0){
+                            parseCommands(commandsQueue.popLatest());
                         }
                         break;
                 }

@@ -27,18 +27,26 @@ public class Datastore{
 
         Long currentTimeStamp = System.currentTimeMillis();
         ValueEntry valueEntry = keyValueStore.get(key);
+
+        if (valueEntry == null){
+            return null;
+        }
         System.out.println(currentTimeStamp.toString());
         
+        //Infinite expiry, cus not set in the additional PX argument
         if(valueEntry.expiryTime == -1L){
             return valueEntry.value;
         }
 
+        //Checking for expiry
         Long net = valueEntry.expiryTime + valueEntry.setAt;
         System.out.println(valueEntry.expiryTime.toString());
         System.out.println(net.toString());
         if (net > currentTimeStamp){
-            return valueEntry.value;
+            return valueEntry.value; //within expiry date. So can.
         }
+
+        //Expiry case
         keyValueStore.remove(key);
         return null;
     }

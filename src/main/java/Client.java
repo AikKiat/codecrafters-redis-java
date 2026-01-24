@@ -142,13 +142,23 @@ public class Client{
                         break;
 
                     case "EXEC":
-                        if(commandsQueue.getSize() == 0){
+                        System.out.println("" + isMulti);
+                        if(isMulti == false){
+                            //Means MULTI command was not called beforehand
                             write("-ERR EXEC without MULTI\r\n");
                             break;
                         }
+                        if(commandsQueue.getSize() == 0){
+                            write("*0\r\n");
+                            break;
+                        }
+
                         System.out.println(commandsQueue.peek());
                         while (commandsQueue.getSize() > 0){
                             parseCommands(commandsQueue.popLatest());
+                        }
+                        if(isMulti == true){
+                            isMulti = false;
                         }
                         break;
                 }
